@@ -1,0 +1,9 @@
+---
+- name: Application host
+  become: true
+  become_method: sudo
+  become_user: root
+  hosts:
+  - sfmovies
+  roles:
+  - host
