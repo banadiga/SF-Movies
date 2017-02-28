@@ -1,0 +1,111 @@
+version: '2'
+services:
+
+  cadvisor:
+    container_name: Control-Advisor
+    image: google/cadvisor
+    ports:
+      - 8080:8080
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+
+  elasticsearch:
+    container_name: Elasticsearch
+    image: elasticsearch:5.0.2
+    ports:
+      - 9200:9200
+      - 9300:9300
+    environment:
+      ES_JAVA_OPTS: "-Xms1g -Xmx1g"
+
+  logstash:
+    container_name: Logstash
+    image: logstash:latest
+    command: -f /etc/logstash/conf.d/
+    volumes:
+      - ./config/logstash:/etc/logstash/conf.d
+      - ./log:/var/log/sfmovies
+    ports:
+      - 5000:5000
+    links:
+      - elasticsearch
+
+  kibana:
+    container_name: Kibana
+    image: kibana:latest
+    volumes:
+      - ./config/kibana/:/opt/kibana/config/
+    ports:
+      - 5601:5601
+    environment:
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+    links:
+      - elasticsearch
+
+#  zipkin-storage:
+#    image: openzipkin/zipkin-mysql
+#    container_name: Zipkin-Storage
+#    networks:
+#      - zipkin
+#  zipkin-dependencies:
+#    image: openzipkin/zipkin-dependencies
+#    container_name: Zipkin-Dependencies
+#    entrypoint: crond -f
+#    environment:
+#      - STORAGE_TYPE=mysql
+#      - MYSQL_HOST=storage
+#      - MYSQL_USER=zipkin
+#      - MYSQL_PASS=zipkin
+#    links:
+#      - zipkin
+#      - zipkin-storage
+#    networks:
+#      - zipkin
+#  zipkin-kafka-zookeeper:
+#    container_name: Zipkin-Kafka-Zookeeper
+#    image: openzipkin/zipkin-kafka
+#    ports:
+#      - 2181:2181
+#      - 9092:9092
+#    environment:
+#      # corresponds to your docker machine and your producer's broker list
+#      - KAFKA_ADVERTISED_HOST_NAME=13.13.13.13
+#    networks:
+#      - zipkin
+#  zipkin:
+#    container_name: Zipkin
+#    image: openzipkin/zipkin
+#    ports:
+#      - 9410:9410
+#      - 9411:9411
+#    links:
+#      - cadvisor
+#      - zipkin-kafka-zookeeper
+#      - zipkin-storage
+#    environment:
+#      - KAFKA_ZOOKEEPER=kafka-zookeeper
+#      - STORAGE_TYPE=mysql
+#      - MYSQL_HOST=Zipkin-Storage
+#    networks:
+#      - zipkin
+#      - private
+
+  crawler-api:
+    container_name: Crawler-REST-API
+    build:
+        context: ../cli/crawler
+        dockerfile: Dockerfile
+    ports:
+      - 8888:8080
+    links:
+      - elasticsearch
+    volumes:
+      - ./log:/var/log/sfmovies
+    environment:
+      - APP_CRAWLER_AUTO_START=false
+      - APP_CRAWLER_INDEX=elasticsearch:9200
+      - APP_SOCRSTA_TOKEN=""
+#      - APP_SOCRSTA_TOKEN: "${APP_SOCRSTA_TOKEN}"
